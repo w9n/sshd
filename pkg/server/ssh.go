@@ -1,4 +1,4 @@
-package main
+package server
 
 import (
 	"crypto/rand"
@@ -15,7 +15,7 @@ import (
 )
 
 // SSHdListenAndServe  ssh server main
-func SSHdListenAndServe(listen string, authorizedKeys []string) error {
+func SSHdListenAndServe(listen string, config *ssh.ServerConfig) error {
 	// generate server rsa key
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
@@ -26,27 +26,6 @@ func SSHdListenAndServe(listen string, authorizedKeys []string) error {
 		return err
 	}
 
-	authorizedKeysMap := map[string]bool{}
-	for _, authkey := range authorizedKeys {
-		pubKey, _, _, _, err := ssh.ParseAuthorizedKey([]byte(authkey))
-		if err != nil {
-			// just skip
-			log.Printf("Invalid ssh key")
-			continue
-		}
-		authorizedKeysMap[string(pubKey.Marshal())] = true
-		log.Println("Key added")
-	}
-
-	config := &ssh.ServerConfig{
-		PublicKeyCallback: func(c ssh.ConnMetadata, pubKey ssh.PublicKey) (*ssh.Permissions, error) {
-			if authorizedKeysMap[string(pubKey.Marshal())] {
-				log.Printf("User \"%s\" authenticated with PubKey.", c.User())
-				return nil, nil
-			}
-			return nil, fmt.Errorf("unknown public key for %q", c.User())
-		},
-	}
 	config.AddHostKey(signer)
 
 	listener, err := net.Listen("tcp", listen)
